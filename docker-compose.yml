@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # Servidor de Base de Datos MySQL
+  db:
+    image: mysql:8.0
+    container_name: mysql_tp_hoteles
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: admin123
+      MYSQL_DATABASE: db_hoteles
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin123
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./config/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+      - ./scripts:/docker-entrypoint-initdb.d:ro
+    command: 
+      - --local-infile=1
+      - --disable-log-bin
+      - --innodb-buffer-pool-size=268435456
+
+
+  # Administrador Visual phpMyAdmin
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: phpmyadmin_tp_hoteles
+    restart: always
+    depends_on:
+      - db
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: 500M
+
+volumes:
+  db_data:
