@@ -1,0 +1,11 @@
+# Volcados y datos masivos
+*.dump
+*.sql.gz
+*.csv
+*.tar
+*.gz
+
+# Logs y temporales
+*.log
+.DS_Store
+Thumbs.db
