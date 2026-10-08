@@ -15,23 +15,29 @@ BEGIN
     DECLARE i INT DEFAULT 1;
     DECLARE lote_tamano INT DEFAULT 100000;
     
-    -- Optimizaciones de sesión para carga masiva de alto rendimiento
+    -- Optimizaciones de sesión para máxima velocidad de ingesta
     SET autocommit = 0;
     SET foreign_key_checks = 0;
     SET unique_checks = 0;
-    SET sql_log_bin = 0;
 
     WHILE i <= total_lotes DO
         START TRANSACTION;
         
         INSERT INTO RESERVA (id_huesped, id_habitacion, fecha_inicio, fecha_salida, tarifa, estado)
         SELECT 
-            1 + FLOOR(RAND() * 50000) AS id_huesped,
-            1 + FLOOR(RAND() * 2500)  AS id_habitacion,
-            DATE_ADD('2020-01-01', INTERVAL FLOOR(RAND() * 2190) DAY) AS fecha_inicio,
-            DATE_ADD('2020-01-01', INTERVAL (FLOOR(RAND() * 2190) + 1 + FLOOR(RAND() * 10)) DAY) AS fecha_salida,
-            IF(@e := ELT(1 + FLOOR(RAND() * 3), 'confirmada', 'pendiente', 'cancelada') = 'pendiente', NULL, ROUND(50.00 + (RAND() * 450.00), 2)) AS tarifa,
-            @e AS estado
+            1 + (((d1.d + d2.d*10 + d3.d*100 + d4.d*1000 + d5.d*10000) * 7 + i * 13) % 50000) AS id_huesped,
+            1 + (((d1.d + d2.d*10 + d3.d*100 + d4.d*1000 + d5.d*10000) * 11 + i * 17) % 2500) AS id_habitacion,
+            DATE_ADD('2018-01-01', INTERVAL (((d1.d + d2.d*10 + d3.d*100 + d4.d*1000 + d5.d*10000) * 31 + i * 101) % 2900) DAY) AS fecha_inicio,
+            DATE_ADD('2018-01-01', INTERVAL ((((d1.d + d2.d*10 + d3.d*100 + d4.d*1000 + d5.d*10000) * 31 + i * 101) % 2900) + 1 + ((d1.d + i) % 7)) DAY) AS fecha_salida,
+            CASE 
+                WHEN ((d1.d + d2.d*10 + i) % 10) >= 7 AND ((d1.d + d2.d*10 + i) % 10) < 9 THEN NULL
+                ELSE ROUND(45.00 + (((d1.d + d2.d*10 + d3.d*100 + i * 37) % 455)), 2)
+            END AS tarifa,
+            CASE 
+                WHEN ((d1.d + d2.d*10 + i) % 10) < 7 THEN 'confirmada'
+                WHEN ((d1.d + d2.d*10 + i) % 10) < 9 THEN 'pendiente'
+                ELSE 'cancelada'
+            END AS estado
         FROM aux_digits d1
         CROSS JOIN aux_digits d2
         CROSS JOIN aux_digits d3
@@ -43,7 +49,7 @@ BEGIN
         SET i = i + 1;
     END WHILE;
 
-    -- Restaurar configuraciones normales
+    -- Restaurar configuraciones de seguridad
     SET foreign_key_checks = 1;
     SET unique_checks = 1;
     SET autocommit = 1;
