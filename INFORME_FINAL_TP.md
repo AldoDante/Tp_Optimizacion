@@ -3,7 +3,10 @@
 ### Cátedra: Herramientas Informáticas Avanzadas
 **Trabajo Práctico:** Diseño y Optimización de Bases de Datos  
 **Docente a Cargo:** Prof. Casasola  
-**Equipo de Desarrollo:** Aldo Dante Antivilo, Facundo y Gonzalo Caucota  
+**Equipo de Desarrollo:**  
+* Antivilo, Aldo Dante — LU: 5381  
+* Caucota, Gonzalo — LU: 2423  
+* Gaspar, Facundo Ezequiel — LU: 5309  
 **Fecha de Presentación:** Jueves 15 de Octubre de 2026 | **Fecha de Defensa:** Viernes 16 de Octubre de 2026  
 **Repositorio Oficial de Código y Scripts:** `https://github.com/AldoDante/Tp_Optimizacion.git`  
 **Entorno de Laboratorio:** Contenedor Docker Oficial MySQL 8.0 Community Server (Motor Transaccional InnoDB)
@@ -84,9 +87,12 @@
 * **Ejercicio y Modelado:**
   1. *Entidades Primarias Identificadas:* `HOTEL`, `HABITACION`, `TIPO_HABITACION`, `COMODIDAD`, `PUNTO_INTERES`, `HUESPED`, `RESERVA`.
   2. *Entidades Subordinadas / Relaciones:* `MEDIO_CONTACTO_HOTEL`, `HUESPED_TELEFONO`, `HUESPED_EMAIL`, `HOTEL_PUNTO`, `TIPO_COMODIDAD`.
+
+  ![Diagrama Entidad-Relación Conceptual (Punto 1)](img/01_diagrama_entidad_relacion.png)
 * **Reglas de Negocio Explícitas y Justificación:**
-  * **Regla 1 (No Superposición de Fechas):** Para una misma habitación física $H$, no pueden coexistir dos reservas activas $R_1$ y $R_2$ cuyos intervalos temporales se intersequen:
-    $$\neg \exists (R_1, R_2) \mid R_1.H = R_2.H \land R_1 \neq R_2 \land R_1.\text{estado} \neq \text{'cancelada'} \land R_2.\text{estado} \neq \text{'cancelada'} \land (R_1.\text{inicio} < R_2.\text{salida} \land R_1.\text{salida} > R_2.\text{inicio})$$
+  * **Regla 1 (No Superposición de Fechas):** Para una misma habitación física `H`, no pueden coexistir dos reservas activas `R1` y `R2` cuyos intervalos temporales se superpongan:
+    > **Condición formal:** No debe existir ningún par de reservas `(R1, R2)` tal que pertenezcan a la misma habitación (`R1.id_habitacion = R2.id_habitacion`), ninguna esté cancelada (`estado != 'cancelada'`), y sus fechas se crucen:  
+    > `(R1.fecha_inicio < R2.fecha_salida) AND (R1.fecha_salida > R2.fecha_inicio)`
   * **Regla 2 (Fijación Tarifaria Condicional):** Toda reserva en estado `pendiente` debe tener `tarifa = NULL`. La tarifa se asigna como un valor monetario estrictamente positivo únicamente cuando la reserva pasa a estado `confirmada` o `cancelada` (para conservar el historial financiero).
   * **Regla 3 (Multiplicidad de Canales):** Ni hoteles ni huéspedes pueden tener un límite rígido de vías de contacto. Los teléfonos y correos deben modelarse sin imponer columnas fijas vacías (`telefono1`, `telefono2`).
 
@@ -95,19 +101,29 @@
 ### Punto 2: Modelo Relacional y Transformaciones
 * **Consigna Oficial:** Presentar las relaciones, atributos, claves primarias, claves foráneas y restricciones. Justificar las transformaciones realizadas.
 * **Marco Teórico:** El pasaje del modelo conceptual al relacional exige aplicar transformaciones que garanticen la integridad referencial y minimicen la sobrecarga física de los índices en motores de almacenamiento relacional.
-* **Esquema Relacional Formal:**
-  * $\text{HOTEL}(\underline{\text{id\_hotel}}, \text{nombre}, \text{descripcion}, \text{calle}, \text{numero}, \text{ciudad})$
-  * $\text{MEDIO\_CONTACTO\_HOTEL}(\underline{\text{id\_contacto}}, \text{id\_hotel}, \text{tipo}, \text{valor})$
-  * $\text{PUNTO\_INTERES}(\underline{\text{id\_punto}}, \text{nombre}, \text{descripcion})$
-  * $\text{HOTEL\_PUNTO}(\underline{\text{id\_hotel}, \text{id\_punto}}, \text{distancia\_km})$
-  * $\text{TIPO\_HABITACION}(\underline{\text{id\_tipo\_hab}}, \text{nombre}, \text{descripcion})$
-  * $\text{COMODIDAD}(\underline{\text{id\_comodidad}}, \text{descripcion})$
-  * $\text{TIPO\_COMODIDAD}(\underline{\text{id\_tipo\_hab}, \text{id\_comodidad}})$
-  * $\text{HABITACION}(\underline{\text{id\_habitacion}}, \text{id\_hotel}, \text{id\_tipo\_hab}, \text{numero\_habitacion})$
-  * $\text{HUESPED}(\underline{\text{id\_huesped}}, \text{tipo\_doc}, \text{nro\_documento}, \text{nombre}, \text{apellido}, \text{domicilio})$
-  * $\text{HUESPED\_EMAIL}(\underline{\text{id\_huesped}, \text{email}})$
-  * $\text{HUESPED\_TELEFONO}(\underline{\text{id\_huesped}, \text{numero\_telefono}})$
-  * $\text{RESERVA}(\underline{\text{id\_reserva}}, \text{id\_huesped}, \text{id\_habitacion}, \text{fecha\_inicio}, \text{fecha\_salida}, \text{tarifa}, \text{estado})$
+
+* **1. Propuesta de Modelo Relacional Inicial (Previo a Normalización):**  
+  En las fases iniciales del diseño se contemplaba utilizar atributos de negocio como claves primarias (DNI en huésped, número de puerta en habitación) y asociar directamente comodidades a habitaciones individuales, lo cual generaba redundancias y riesgos de anomalías:
+
+  ![Propuesta de Modelo Relacional Inicial](img/01_modelo_entidad_intermedio.png)
+
+* **2. Esquema Relacional Formal Normalizado en 3FN (12 Tablas de Dominio Puro):**  
+  Tras descomponer atributos multivaluados y aislar entidades maestras, se alcanza el esquema en Tercera Forma Normal (Claves Primarias en negrita):
+  * **HOTEL**(**id_hotel**, nombre, descripcion, calle, numero, ciudad)
+  * **MEDIO_CONTACTO_HOTEL**(**id_contacto**, id_hotel, tipo, valor)
+  * **PUNTO_INTERES**(**id_punto**, nombre, descripcion)
+  * **HOTEL_PUNTO**(**id_hotel, id_punto**, distancia_km)
+  * **TIPO_HABITACION**(**id_tipo_hab**, nombre, descripcion)
+  * **COMODIDAD**(**id_comodidad**, descripcion)
+  * **TIPO_COMODIDAD**(**id_tipo_hab, id_comodidad**)
+  * **HABITACION**(**id_habitacion**, id_hotel, id_tipo_hab, numero_habitacion)
+  * **HUESPED**(**id_huesped**, tipo_doc, nro_documento, nombre, apellido, domicilio)
+  * **HUESPED_EMAIL**(**id_huesped, email**)
+  * **HUESPED_TELEFONO**(**id_huesped, numero_telefono**)
+  * **RESERVA**(**id_reserva**, id_huesped, id_habitacion, fecha_inicio, fecha_salida, tarifa, estado)
+
+  ![Modelo Relacional Normalizado en 3FN (12 Tablas)](img/02_modelo_relacional_12tablas_3fn.png)
+
 * **Justificación de Transformaciones:**
   1. *Claves Sustitutas vs. Naturales:* Utilizar el documento del huésped como clave primaria forzaría a propagar cadenas de texto (`VARCHAR(20)`) a lo largo de los millones de registros de `RESERVA`. La clave subrogada entera (`INT UNSIGNED`, 4 bytes) ofrece inmutabilidad frente a cambios de documento (pasaportes, DNIs), reduce a la mitad el tamaño de las páginas de índices B+Tree y previene actualizaciones en cascada.
   2. *Desacople de Habitación y Tipo:* Se independizó la unidad física (`HABITACION`) de la categoría comercial (`TIPO_HABITACION`). Esto permite aplicar la regla de negocio que vincula las comodidades al tipo de cuarto, estableciendo en `HABITACION` la restricción candidata `UNIQUE(id_hotel, numero_habitacion)` ("Único por sucursal").
@@ -116,20 +132,20 @@
 
 ### Punto 3: Normalización Formal (1FN, 2FN y 3FN)
 * **Consigna Oficial:** Aplicar las formas normales correspondientes. Analizar dependencias funcionales y justificar que el modelo evita redundancias y anomalías de inserción, modificación y eliminación.
-* **Marco Teórico:** La teoría de normalización de Codd busca eliminar la redundancia de datos y prevenir anomalías operacionales mediante la descomposición no destructiva de relaciones basada en dependencias funcionales ($X \to Y$).
+* **Marco Teórico:** La teoría de normalización de Codd busca eliminar la redundancia de datos y prevenir anomalías operacionales mediante la descomposición no destructiva de relaciones basada en dependencias funcionales (`X → Y`).
 * **Demostración Rigurosa por Forma Normal:**
   * **Primera Forma Normal (1FN):**
     * *Definición:* Todos los atributos deben ser atómicos y no deben existir grupos repetitivos.
     * *Demostración:* En lugar de declarar columnas multivaluadas en `HUESPED` (`telefono_1, telefono_2`) o listas separadas por comas, se crearon las tablas dependientes `HUESPED_TELEFONO` y `HUESPED_EMAIL`. La clave primaria compuesta asegura atomicidad pura.
   * **Segunda Forma Normal (2FN):**
     * *Definición:* Todo atributo no clave debe tener dependencia funcional completa respecto a la clave primaria.
-    * *Demostración:* En la tabla asociativa `HOTEL_PUNTO(\underline{id_hotel, id_punto}, distancia_km)`, el atributo `distancia_km` depende estrictamente del par $\{id\_hotel, id\_punto\}$ en su totalidad:
-      $$\{id\_hotel, id\_punto\} \to distancia\_km$$
+    * *Demostración:* En la tabla asociativa `HOTEL_PUNTO(id_hotel, id_punto, distancia_km)`, el atributo `distancia_km` depende estrictamente del par clave completo:
+      > `{id_hotel, id_punto} → distancia_km`  
       Los atributos descriptivos del atractivo turístico no se duplican allí; residen exclusivamente en `PUNTO_INTERES`, evitando repetir descripciones masivas por cada hotel vinculado.
   * **Tercera Forma Normal (3FN):**
-    * *Definición:* Ningún atributo no clave debe depender transitivamente de la clave primaria ($X \to Y$ y $Y \to Z$).
+    * *Definición:* Ningún atributo no clave debe depender transitivamente de la clave primaria (`X → Y` y `Y → Z`).
     * *Demostración:* Existía una dependencia transitiva conceptual:
-      $$id\_habitacion \to id\_tipo\_hab \to comodidad$$
+      > `id_habitacion → id_tipo_hab → comodidad`  
       Si las comodidades se hubieran asociado a `HABITACION`, el catálogo de amenidades dependería transitivamente de la habitación física. Se aisló la entidad `TIPO_HABITACION` y la asociativa `TIPO_COMODIDAD`.
 * **Prevención de Anomalías Operacionales:**
   * *Anomalía de Modificación:* Si la gerencia agrega la comodidad "Frigobar" a todas las habitaciones "Suite", se inserta una única fila en `TIPO_COMODIDAD`. Sin 3FN, habría que ejecutar un `UPDATE` masivo sobre miles de habitaciones físicas individuales, arriesgando inconsistencias.
@@ -162,12 +178,12 @@
 * **Escenario Propuesto:** Reporte Histórico de Ocupación y Recaudación Mensual por Hotel.
   * *Problema en 3FN:* Calcular mensualmente los ingresos de la cadena exige cruzar `HOTEL`, `HABITACION` y `RESERVA` sobre más de 8 millones de registros.
   * *Solución Desnormalizada:* Creación de la tabla de resumen físico:
-    $$\text{REPORTE\_RECAUDACION\_MENSUAL}(\underline{\text{id\_hotel}, \text{anio\_mes}}, \text{cantidad\_reservas}, \text{total\_recaudado})$$
+    > **REPORTE_RECAUDACION_MENSUAL**(**id_hotel, anio_mes**, cantidad_reservas, total_recaudado)
 * **Mantenimiento Automatizado de la Integridad:**
   Se implementaron los triggers `trg_recaudacion_insert` y `trg_recaudacion_update` en MySQL. Cuando una reserva pasa a `'confirmada'`, el disparador actualiza atómicamente el acumulador mensual mediante `ON DUPLICATE KEY UPDATE`. Si una reserva confirmada se cancela, el trigger resta el importe correspondiente.
 * **Medición Experimental del Impacto:**
   * Consulta en 3FN Dinámica: Requiere un Nested Loop Join con agrupamiento temporal sobre millones de registros, tardando **más de 67 segundos** en Cold Cache.
-  * Consulta sobre Tabla Desnormalizada: Ejecuta un `SELECT * FROM REPORTE_RECAUDACION_MENSUAL WHERE id_hotel = 1 AND anio_mes = '2023-05'` resolviendo por clave primaria en **0,0001 segundos** ($O(1)$).
+  * Consulta sobre Tabla Desnormalizada: Ejecuta un `SELECT * FROM REPORTE_RECAUDACION_MENSUAL WHERE id_hotel = 1 AND anio_mes = '2023-05'` resolviendo por clave primaria en **0,0001 segundos** (complejidad O(1)).
 
 ---
 
@@ -175,6 +191,11 @@
 
 ### Punto 6: Implementación Física (Script DDL Definitivo)
 * **Consigna Oficial:** Crear las tablas de la base de datos utilizando PostgreSQL, MySQL o MariaDB. Documentar el script completo de creación.
+* **Diagrama Físico Definitivo del Sistema (13 Tablas con Desnormalización Controlada):**  
+  El modelo implementado en la base de datos incorpora la 13° tabla (`REPORTE_RECAUDACION_MENSUAL`) resultante de la desnormalización justificada en el Punto 5:
+
+  ![Modelo Físico Completo Implementado (13 Tablas)](img/03_modelo_fisico_13tablas_desnormalizado.png)
+
 * **Script DDL Oficial Ejecutado en MySQL 8.0 InnoDB (`scripts/01_crear_tablas.sql`):**
 
 ```sql
@@ -245,8 +266,7 @@ CREATE TABLE HOTEL_PUNTO (
 CREATE TABLE TIPO_HABITACION (
     id_tipo_hab INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(50) NOT NULL,
-    descripcion VARCHAR(255),
-    PRIMARY KEY (id_tipo_hab)
+    descripcion VARCHAR(255)
 ) ENGINE=InnoDB;
 
 -- 6. COMODIDAD
@@ -398,7 +418,7 @@ Se implementó una estrategia jerárquica para eliminar el 100% de los escaneos 
 
 | Nombre del Índice | Tabla | Columnas Indexadas | Tipo de Índice | Consultas Objetivo | Justificación Técnica |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `PRIMARY` | `RESERVA` | `id_reserva` | Clustered B+Tree | Búsqueda por ID, Keyset Pagination | Acceso físico directo por clave primaria $O(\log N)$. |
+| `PRIMARY` | `RESERVA` | `id_reserva` | Clustered B+Tree | Búsqueda por ID, Keyset Pagination | Acceso físico directo por clave primaria en tiempo logarítmico O(log N). |
 | `idx_hab_hotel` | `HABITACION` | `id_hotel` | Secundario B+Tree | JOINs con HOTEL | Acelera cruces referenciales eliminando escaneos de habitaciones. |
 | `idx_reserva_habitacion` | `RESERVA` | `id_habitacion` | Secundario B+Tree | JOINs con HABITACION | Transforma escaneos masivos en búsquedas por referencia (`ref`). |
 | `idx_reserva_huesped` | `RESERVA` | `id_huesped` | Secundario B+Tree | Historial de clientes, Q03, Q11 | Acceso directo a reservas por huésped en tiempo logarítmico. |
@@ -415,17 +435,17 @@ Se implementó una estrategia jerárquica para eliminar el 100% de los escaneos 
   * En un **B+Tree**, los nodos internos contienen **únicamente claves de búsqueda y punteros de página**. Los datos reales residen exclusivamente en los nodos hoja.
 * **Ventajas Determinantes del B+Tree:**
   1. *Mayor Capacidad por Página:* Una página interna de 16 KB puede contener más de 1.000 punteros de navegación, manteniendo el árbol extremadamente bajo y ancho.
-  2. *Escaneos de Rango de Alta Velocidad:* Todas las páginas hoja están conectadas entre sí mediante una lista doblemente enlazada. Para consultar `BETWEEN '2023-01-01' AND '2023-12-31'`, el motor navega desde la raíz hasta la primera hoja de 2023 en $O(\log N)$ y luego recorre linealmente los punteros contiguos de disco sin volver a subir a la raíz.
-* **Cálculo Matemático de Altura para 8.100.000 Registros:**
-  $$\text{Nivel 0 (Raíz): } 1 \text{ página} \implies \approx 1.000 \text{ punteros}$$
-  $$\text{Nivel 1 (Ramas): } 1.000 \text{ páginas} \implies \approx 1.000.000 \text{ punteros}$$
-  $$\text{Nivel 2 (Hojas): } 1.000.000 \text{ páginas} \implies \text{Capacidad para más de } 100.000.000 \text{ de filas}$$
+  2. *Escaneos de Rango de Alta Velocidad:* Todas las páginas hoja están conectadas entre sí mediante una lista doblemente enlazada. Para consultar `BETWEEN '2023-01-01' AND '2023-12-31'`, el motor navega desde la raíz hasta la primera hoja de 2023 en O(log N) y luego recorre linealmente los punteros contiguos de disco sin volver a subir a la raíz.
+* **Cálculo de Altura del Árbol para 8.100.000 Registros:**
+  * **Nivel 0 (Raíz):** 1 página de 16 KB ≈ 1.000 punteros de ramificación.
+  * **Nivel 1 (Ramas intermedias):** 1.000 páginas ≈ 1.000.000 de punteros.
+  * **Nivel 2 (Hojas):** 1.000.000 páginas ≈ Capacidad para más de 100.000.000 de filas reales.  
   *Conclusión:* Con una altura fija de solo **3 niveles**, cualquier registro entre los 8.1 millones se localiza con un máximo de **3 accesos a página**, frente a los **45.000 accesos** de una búsqueda secuencial.
 
 ---
 
 ### Punto 13: Otros Tipos de Estructuras de Indexación
-* **Hash Index:** Utiliza funciones de dispersión para direccionar punteros en tiempo $O(1)$. Solo soporta operadores de igualdad estricta (`=`, `<=>`). Totalmente inútil para hotelería porque no soporta rangos de fechas (`BETWEEN`), ordenamientos (`ORDER BY`) ni prefijos de búsqueda.
+* **Hash Index:** Utiliza funciones de dispersión para direccionar punteros en tiempo constante O(1). Solo soporta operadores de igualdad estricta (`=`, `<=>`). Totalmente inútil para hotelería porque no soporta rangos de fechas (`BETWEEN`), ordenamientos (`ORDER BY`) ni prefijos de búsqueda.
 * **Full-Text Index:** Estructurado como un índice invertido que descompone texto en tokens y palabras vacías. Ideal para descripciones de hoteles, pero inadecuado para atributos transaccionales estructurados.
 * **Spatial Index (R-Tree):** Organiza geometrías bi/tridimensionales en rectángulos delimitadores mínimos (*MBR*). Empleado en coordenadas geográficas de sucursales.
 * **Bitmap Index:** Codifica valores de baja cardinalidad en matrices de bits. Excelente para lecturas analíticas en data warehouses, pero inviable en InnoDB debido a que modificar un bit bloquea miles de filas contiguas.
@@ -433,7 +453,7 @@ Se implementó una estrategia jerárquica para eliminar el 100% de los escaneos 
 ---
 
 ### Punto 14: Índices Compuestos y Demostración de la Regla del Prefijo Izquierdo
-* **Fundamento Teórico:** Un índice sobre $(C_1, C_2)$ ordena físicamente los datos según $C_1$, y solo desempata por $C_2$ cuando los valores de $C_1$ son idénticos. Si una consulta no incluye $C_1$ en su filtro, el orden del árbol queda roto para el optimizador.
+* **Fundamento Teórico:** Un índice sobre un par de columnas `(C1, C2)` ordena físicamente los datos según `C1`, y solo desempata por `C2` cuando los valores de `C1` son idénticos. Si una consulta no incluye `C1` en su filtro, el orden del árbol queda roto para el optimizador.
 * **Experimento Empírico en el Contenedor:**
   * Índice creado: `idx_reserva_fecha_estado(fecha_inicio, estado)`.
   * **Caso A (Respeta Prefijo Izquierdo):**
@@ -479,11 +499,11 @@ Se implementó una estrategia jerárquica para eliminar el 100% de los escaneos 
 
 ### Punto 17: Análisis Matemático de Cardinalidad y Selectividad
 * **Fórmula Formal:**
-  $$\text{Selectividad} (S) = \frac{\text{Cardinalidad}}{\text{Total de Filas}} \quad (0 \le S \le 1)$$
+  > **Selectividad (S) = Cardinalidad / Total de Filas** *(donde 0 ≤ S ≤ 1)*
 
-| Columna | Cardinalidad Medida | Selectividad ($S$) | Comportamiento del Optimizador de MySQL |
+| Columna | Cardinalidad Medida | Selectividad (S) | Comportamiento del Optimizador de MySQL |
 | :--- | :---: | :---: | :--- |
-| `id_reserva` (PK) | 7.933.173 | **0.979** | Búsqueda agrupada instantánea $O(\log N)$. Siempre elegida. |
+| `id_reserva` (PK) | 7.933.173 | **0.979** | Búsqueda agrupada instantánea O(log N). Siempre elegida. |
 | `id_huesped` | 49.158 | **0.006** | Alta selectividad. Un índice filtra a ~160 reservas por cliente. El optimizador siempre utiliza el índice. |
 | `id_habitacion` | 2.501 | **0.0003** | Media selectividad (~3.200 filas por cuarto). Muy útil al combinarse con fechas. |
 | `estado` | 3 | **0.0000003** | **Baja selectividad extrema.** Como `'confirmada'` representa el 70% de la tabla, hacer millones de saltos a disco para recuperar filas individuales cuesta más que leer secuencialmente el archivo. El optimizador **descarta deliberadamente cualquier índice simple sobre `estado`**. |
@@ -502,9 +522,9 @@ Se implementó una estrategia jerárquica para eliminar el 100% de los escaneos 
 
 ### Punto 19: Generación Reproducible de Datos de Prueba
 * **Algoritmo Determinista (Semilla Fija):** Se utilizó un algoritmo procedural implementado tanto en Java (`generador/GeneradorReservas.java`) como en SQL (`scripts/03_carga_masiva_reservas.sql`) con semilla `Random(42)`.
-* **Garantía Matemática de No Solapamiento:** Por cada habitación física ($1 \le h \le 2500$), se mantuvo un puntero temporal progresivo:
-  $$\text{inicio}_{k} = \text{salida}_{k-1} + \text{vacancia} \quad (\text{vacancia} \in [0, 2] \text{ días})$$
-  $$\text{salida}_{k} = \text{inicio}_{k} + \text{duración} \quad (\text{duración} \in [1, 7] \text{ días})$$
+* **Garantía Matemática de No Solapamiento:** Por cada habitación física (1 ≤ h ≤ 2.500), se mantuvo un puntero temporal progresivo:
+  * `inicio[k] = salida[k-1] + vacancia` *(con vacancia ∈ [0, 2] días)*
+  * `salida[k] = inicio[k] + duración` *(con duración ∈ [1, 7] días)*  
   Esto **garantiza por construcción algorítmica cero solapamientos temporales**, simulando 8 años de historial hotelero realista (2018 a 2026).
 
 ---
@@ -817,8 +837,8 @@ SELECT id_reserva, id_huesped, fecha_inicio, tarifa FROM RESERVA WHERE estado = 
   * SARGable (`WHERE fecha_inicio >= '2023-01-01' AND fecha_inicio < '2024-01-01'`): `type: range`, `key_len: 3`, navegando el árbol en **0,42 segundos**.
 
 ### Puntos 31 al 33: Costos, Estadísticas y Optimización de JOINs
-* **Algoritmo de Emparejamiento:** MySQL utiliza *Nested Loop Join*. Sin índices foráneos, por cada habitación examinada, el motor ejecutaba un escaneo secuencial de los 8.1M de reservas ($O(M \times N)$).
-* **Solución:** La creación de los índices `idx_reserva_habitacion` y `idx_hab_hotel` redujo la complejidad algorítmica a $O(M \times \log N)$, transformando el acceso de tipo `ALL` a `ref`.
+* **Algoritmo de Emparejamiento:** MySQL utiliza *Nested Loop Join*. Sin índices foráneos, por cada habitación examinada, el motor ejecutaba un escaneo secuencial de los 8.1M de reservas (complejidad O(M × N)).
+* **Solución:** La creación de los índices `idx_reserva_habitacion` y `idx_hab_hotel` redujo la complejidad algorítmica a O(M × log N), transformando el acceso de tipo `ALL` a `ref`.
 
 ---
 
@@ -925,7 +945,7 @@ Valores reales medidos en el servidor tras la ejecución del benchmark:
 * **Lecturas Lógicas Servidas en RAM:** `32.004.858 lecturas` (*Innodb_buffer_pool_read_requests*).
 * **Lecturas Físicas desde Disco SSD:** `4.444.634 lecturas` (*Innodb_buffer_pool_reads*).
 * **Tasa de Aciertos de Caché (Hit Ratio):**
-  $$\text{Hit Ratio} = \frac{32.004.858 - 4.444.634}{32.004.858} = \mathbf{86,11\%}$$
+  > **Hit Ratio = (32.004.858 - 4.444.634) / 32.004.858 = 86,11%**  
   *Diagnóstico:* El 86,11% de las peticiones se sirvieron en microsegundos directamente desde la memoria RAM.
 
 ---
@@ -1041,7 +1061,7 @@ PARTITION BY RANGE (YEAR(fecha_inicio)) (
 * **Vistas Materializadas / Tablas de Resumen:** Persistencia física de los resultados en `REPORTE_RECAUDACION_MENSUAL` mantenida por triggers.
 * **Comparativa de Costo en EXPLAIN:**
   * Vista Dinámica: Ejecuta un *Derived Table Scan* con agregación en memoria procesando cientos de tuplas.
-  * Tabla Materializada: Búsqueda indexada directa en tiempo **$O(1)$** por clave primaria `(id_hotel, anio_mes)`, reduciendo el consumo de CPU a cero.
+  * Tabla Materializada: Búsqueda indexada directa en tiempo **O(1)** por clave primaria `(id_hotel, anio_mes)`, reduciendo el consumo de CPU a cero.
 
 ---
 
